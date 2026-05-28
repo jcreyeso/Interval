@@ -3,8 +3,14 @@ import CoreGraphics
 import Observation
 
 @MainActor
+protocol ActivityMonitoring {
+    var isScreenLocked: Bool { get }
+    var secondsSinceLastInput: TimeInterval { get }
+}
+
+@MainActor
 @Observable
-final class ActivityMonitor {
+final class ActivityMonitor: ActivityMonitoring {
     private(set) var isScreenLocked: Bool = false
 
     init() {

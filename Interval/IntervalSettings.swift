@@ -38,6 +38,22 @@ final class IntervalSettings {
         didSet { UserDefaults.standard.set(restMessage, forKey: Key.restMessage) }
     }
 
+    init(
+        workMinutes: Double,
+        restMinutes: Double,
+        notificationLeadSeconds: Double = 0,
+        idleThresholdSeconds: Double = 30,
+        showTimerInMenuBar: Bool = false,
+        restMessage: String = ""
+    ) {
+        self.workMinutes = workMinutes
+        self.restMinutes = restMinutes
+        self.notificationLeadSeconds = notificationLeadSeconds
+        self.idleThresholdSeconds = idleThresholdSeconds
+        self.showTimerInMenuBar = showTimerInMenuBar
+        self.restMessage = restMessage
+    }
+
     private init() {
         let defaults = UserDefaults.standard
         defaults.register(defaults: [

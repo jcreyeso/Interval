@@ -20,7 +20,7 @@ final class IntervalManager {
     private(set) var pauseReason: PauseReason?
 
     private let settings: IntervalSettings
-    private let activity: ActivityMonitor
+    private let activity: any ActivityMonitoring
     private let restWindow = RestWindowController()
     private var tickTimer: Timer?
 
@@ -33,13 +33,17 @@ final class IntervalManager {
     // Rest-phase wall-clock end
     private var restEndsAt: Date?
 
+    // True for the single tick that begins the work phase after a natural rest completion.
+    // Prevents the idle-away check from immediately stopping a timer the user never touched.
+    private var suppressIdleResetAfterRest = false
+
     private let advanceNotificationId = "interval.advance"
 
     // Cap per-tick elapsed so a system sleep / screen lock gap does not
     // dump minutes of phantom work time into the accumulator on resume.
     private let maxElapsedPerTick: TimeInterval = 2.0
 
-    init(settings: IntervalSettings? = nil, activity: ActivityMonitor? = nil) {
+    init(settings: IntervalSettings? = nil, activity: (any ActivityMonitoring)? = nil) {
         self.settings = settings ?? .shared
         self.activity = activity ?? ActivityMonitor()
         Task { await requestNotificationAuthorization() }
@@ -59,6 +63,7 @@ final class IntervalManager {
         restEndsAt = nil
         lastTickAt = nil
         advanceNotificationSent = false
+        suppressIdleResetAfterRest = false
         cancelAdvanceNotification()
         restWindow.dismiss()
     }
@@ -144,7 +149,11 @@ final class IntervalManager {
         let restDurationSeconds = settings.restMinutes * 60
 
         // User was away longer than a full rest break — reset the work timer.
-        if !locked && idleSeconds >= restDurationSeconds {
+        // Skip on the first tick after natural rest completion: the user was
+        // intentionally idle during rest, so idleSeconds ≈ restDurationSeconds.
+        if suppressIdleResetAfterRest {
+            suppressIdleResetAfterRest = false
+        } else if !locked && idleSeconds >= restDurationSeconds {
             stop()
             return
         }
@@ -185,6 +194,7 @@ final class IntervalManager {
         displayRemaining = remaining
         if remaining <= 0 {
             restWindow.dismiss()
+            suppressIdleResetAfterRest = true
             beginWorking()
         }
     }
