@@ -140,7 +140,16 @@ final class IntervalManager {
 
     private func tickWorking(elapsed: TimeInterval) {
         let locked = activity.isScreenLocked
-        let userIdle = activity.secondsSinceLastInput > settings.idleThresholdSeconds
+        let idleSeconds = activity.secondsSinceLastInput
+        let restDurationSeconds = settings.restMinutes * 60
+
+        // User was away longer than a full rest break — reset the work timer.
+        if !locked && idleSeconds >= restDurationSeconds {
+            stop()
+            return
+        }
+
+        let userIdle = idleSeconds > settings.idleThresholdSeconds
 
         if locked {
             isPaused = true

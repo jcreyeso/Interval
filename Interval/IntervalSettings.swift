@@ -10,6 +10,7 @@ final class IntervalSettings {
         static let restMinutes = "restMinutes"
         static let notificationLeadSeconds = "notificationLeadSeconds"
         static let idleThresholdSeconds = "idleThresholdSeconds"
+        static let showTimerInMenuBar = "showTimerInMenuBar"
         static let restMessage = "restMessage"
     }
 
@@ -29,6 +30,10 @@ final class IntervalSettings {
         didSet { UserDefaults.standard.set(idleThresholdSeconds, forKey: Key.idleThresholdSeconds) }
     }
 
+    var showTimerInMenuBar: Bool {
+        didSet { UserDefaults.standard.set(showTimerInMenuBar, forKey: Key.showTimerInMenuBar) }
+    }
+
     var restMessage: String {
         didSet { UserDefaults.standard.set(restMessage, forKey: Key.restMessage) }
     }
@@ -40,12 +45,14 @@ final class IntervalSettings {
             Key.restMinutes: 5.0,
             Key.notificationLeadSeconds: 10.0,
             Key.idleThresholdSeconds: 30.0,
+            Key.showTimerInMenuBar: true,
             Key.restMessage: "Time to rest.\nStand up, stretch, breathe."
         ])
         self.workMinutes = defaults.double(forKey: Key.workMinutes)
         self.restMinutes = defaults.double(forKey: Key.restMinutes)
         self.notificationLeadSeconds = defaults.double(forKey: Key.notificationLeadSeconds)
         self.idleThresholdSeconds = defaults.double(forKey: Key.idleThresholdSeconds)
+        self.showTimerInMenuBar = defaults.bool(forKey: Key.showTimerInMenuBar)
         self.restMessage = defaults.string(forKey: Key.restMessage) ?? ""
     }
 }

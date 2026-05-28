@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 struct SettingsView: View {
     @Bindable var settings: IntervalSettings
@@ -47,6 +48,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Menu bar") {
+                Toggle("Show timer in menu bar", isOn: $settings.showTimerInMenuBar)
+
+                Toggle("Launch at login", isOn: launchAtLoginBinding)
+            }
+
             Section("Rest screen") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Message")
@@ -68,13 +75,31 @@ struct SettingsView: View {
             }
 
             Section {
-                Text("Changes apply to the next interval.")
+                Text("Timing changes apply to the next interval.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 420)
+        .frame(width: 480, height: 520)
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { SMAppService.mainApp.status == .enabled },
+            set: { enabled in
+                do {
+                    if enabled {
+                        try SMAppService.mainApp.register()
+                    } else {
+                        try SMAppService.mainApp.unregister()
+                    }
+                } catch {
+                    // Registration can fail when running an unsigned debug build.
+                    // It works correctly in a notarized release build.
+                }
+            }
+        )
     }
 }
 
