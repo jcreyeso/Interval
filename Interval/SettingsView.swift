@@ -41,11 +41,12 @@ struct SettingsView: View {
                     }
                 }
 
-                Toggle("Stop timer when away longer than a rest", isOn: $settings.stopOnLongIdle)
+
+                Toggle("Restart focus session when away longer than a rest", isOn: $settings.stopOnLongIdle)
             } header: {
                 Text("Idle detection")
             } footer: {
-                Text("Work countdown pauses when you stop moving the mouse or typing, and when the screen is locked. It resumes the moment you interact again. If you stay away longer than a full rest break, the timer stops — turn that off to keep it paused indefinitely instead.")
+                Text("Work countdown pauses when you stop moving the mouse or typing, and when the screen is locked. It resumes the moment you interact again. If you stay away longer than a full rest break, the focus session restarts from the beginning when you return — turn that off to resume where you left off instead.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -66,6 +67,8 @@ struct SettingsView: View {
                 }
 
                 Toggle("Pause rest while you're still using the computer", isOn: $settings.pauseRestOnActivity)
+
+                Toggle("Show rest screen on all displays", isOn: $settings.restOnAllScreens)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Message")

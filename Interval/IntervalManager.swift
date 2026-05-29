@@ -124,6 +124,7 @@ final class IntervalManager {
             message: settings.restMessage,
             snoozeMinutes: settings.snoozeMinutes,
             allowSkip: !manual,
+            allScreens: settings.restOnAllScreens,
             onSkip: { [weak self] in self?.skipRest() },
             onSnooze: { [weak self] in self?.snooze() }
         )
@@ -164,15 +165,23 @@ final class IntervalManager {
         let idleSeconds = activity.secondsSinceLastInput
         let restDurationSeconds = settings.restMinutes * 60
 
-        // User was away longer than a full rest break — reset the work timer.
-        // Skip on the first tick after natural rest completion: the user was
-        // intentionally idle during rest, so idleSeconds ≈ restDurationSeconds.
-        // Also skip entirely if the user has disabled long-idle auto-stop.
+        // User was away longer than a full rest break — reset the work timer
+        // back to a fresh focus session, but stay in .working so it resumes
+        // automatically the moment they return (no manual Start needed).
+        // Suppress this check after a natural rest completion until the user
+        // actually provides fresh input: they were intentionally idle during
+        // rest, so idleSeconds stays ≈ restDurationSeconds for several ticks
+        // until they touch the keyboard/mouse again.
         if suppressIdleResetAfterRest {
-            suppressIdleResetAfterRest = false
-        } else if settings.stopOnLongIdle, !locked, idleSeconds >= restDurationSeconds {
-            stop()
-            return
+            if idleSeconds < restDurationSeconds {
+                suppressIdleResetAfterRest = false
+            }
+        } else if settings.stopOnLongIdle, idleSeconds >= restDurationSeconds {
+            workAccumulatedSeconds = 0
+            advanceNotificationSent = false
+            displayRemaining = workTargetSeconds
+            // Wait for fresh input before counting down the new session.
+            suppressIdleResetAfterRest = true
         }
 
         let userIdle = idleSeconds > settings.idleThresholdSeconds

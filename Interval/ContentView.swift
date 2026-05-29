@@ -42,7 +42,7 @@ struct ContentView: View {
                         Button("Rest now") { manager.restNow() }
                             .controlSize(.large)
                     } else {
-                        Button("Skip rest") { manager.skipRest() }
+                        Button("Skip") { manager.skipRest() }
                             .controlSize(.large)
                     }
                 }

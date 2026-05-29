@@ -15,6 +15,7 @@ final class IntervalSettings {
         static let snoozeMinutes = "snoozeMinutes"
         static let stopOnLongIdle = "stopOnLongIdle"
         static let pauseRestOnActivity = "pauseRestOnActivity"
+        static let restOnAllScreens = "restOnAllScreens"
     }
 
     var workMinutes: Double {
@@ -53,6 +54,10 @@ final class IntervalSettings {
         didSet { UserDefaults.standard.set(pauseRestOnActivity, forKey: Key.pauseRestOnActivity) }
     }
 
+    var restOnAllScreens: Bool {
+        didSet { UserDefaults.standard.set(restOnAllScreens, forKey: Key.restOnAllScreens) }
+    }
+
     init(
         workMinutes: Double,
         restMinutes: Double,
@@ -62,7 +67,8 @@ final class IntervalSettings {
         restMessage: String = "",
         snoozeMinutes: Double = 5,
         stopOnLongIdle: Bool = true,
-        pauseRestOnActivity: Bool = true
+        pauseRestOnActivity: Bool = true,
+        restOnAllScreens: Bool = true
     ) {
         self.workMinutes = workMinutes
         self.restMinutes = restMinutes
@@ -73,6 +79,7 @@ final class IntervalSettings {
         self.snoozeMinutes = snoozeMinutes
         self.stopOnLongIdle = stopOnLongIdle
         self.pauseRestOnActivity = pauseRestOnActivity
+        self.restOnAllScreens = restOnAllScreens
     }
 
     private init() {
@@ -86,7 +93,8 @@ final class IntervalSettings {
             Key.restMessage: "Time to rest.\nStand up, stretch, breathe.",
             Key.snoozeMinutes: 5.0,
             Key.stopOnLongIdle: true,
-            Key.pauseRestOnActivity: true
+            Key.pauseRestOnActivity: true,
+            Key.restOnAllScreens: true
         ])
         self.workMinutes = defaults.double(forKey: Key.workMinutes)
         self.restMinutes = defaults.double(forKey: Key.restMinutes)
@@ -97,5 +105,6 @@ final class IntervalSettings {
         self.snoozeMinutes = defaults.double(forKey: Key.snoozeMinutes)
         self.stopOnLongIdle = defaults.bool(forKey: Key.stopOnLongIdle)
         self.pauseRestOnActivity = defaults.bool(forKey: Key.pauseRestOnActivity)
+        self.restOnAllScreens = defaults.bool(forKey: Key.restOnAllScreens)
     }
 }

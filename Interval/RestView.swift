@@ -74,7 +74,7 @@ struct RestView: View {
                     }
 
                     Button(action: onSkip) {
-                        Text("Skip rest")
+                        Text("Skip")
                             .font(.title3.weight(.medium))
                             .padding(.horizontal, 28)
                             .padding(.vertical, 14)
