@@ -61,13 +61,21 @@ struct ContentView: View {
         if manager.isPaused, let reason = manager.pauseReason {
             HStack(spacing: 6) {
                 Image(systemName: reason == .screenLocked ? "lock.fill" : "pause.circle.fill")
-                Text(reason == .screenLocked ? "Paused — screen locked" : "Paused — you're idle")
+                Text(pauseText(for: reason))
             }
             .font(.callout)
             .foregroundStyle(.secondary)
             .transition(.opacity)
         } else {
             EmptyView()
+        }
+    }
+
+    private func pauseText(for reason: IntervalManager.PauseReason) -> String {
+        switch reason {
+        case .screenLocked: "Paused — screen locked"
+        case .userIdle: "Paused — you're idle"
+        case .userActive: "Paused — finish your rest"
         }
     }
 

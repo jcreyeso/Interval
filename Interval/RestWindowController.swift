@@ -5,7 +5,7 @@ import SwiftUI
 final class RestWindowController {
     private var windows: [NSWindow] = []
 
-    func present(message: String, endsAt: Date, onSkip: @escaping () -> Void) {
+    func present(manager: IntervalManager, message: String, snoozeMinutes: Double, allowSkip: Bool, onSkip: @escaping () -> Void, onSnooze: @escaping () -> Void) {
         dismiss()
 
         for screen in NSScreen.screens {
@@ -32,9 +32,12 @@ final class RestWindowController {
             window.titlebarAppearsTransparent = true
 
             let view = RestView(
+                manager: manager,
                 message: message,
-                endsAt: endsAt,
-                onSkip: onSkip
+                snoozeMinutes: snoozeMinutes,
+                allowSkip: allowSkip,
+                onSkip: onSkip,
+                onSnooze: onSnooze
             )
             window.contentView = NSHostingView(rootView: view)
             window.makeKeyAndOrderFront(nil)

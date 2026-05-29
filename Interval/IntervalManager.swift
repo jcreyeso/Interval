@@ -11,7 +11,7 @@ final class IntervalManager {
     }
 
     enum PauseReason {
-        case userIdle, screenLocked
+        case userIdle, screenLocked, userActive
     }
 
     private(set) var phase: Phase = .idle
@@ -30,8 +30,9 @@ final class IntervalManager {
     private var lastTickAt: Date?
     private var advanceNotificationSent = false
 
-    // Rest-phase wall-clock end
-    private var restEndsAt: Date?
+    // Rest-phase accumulation
+    private var restTargetSeconds: TimeInterval = 0
+    private var restAccumulatedSeconds: TimeInterval = 0
 
     // True for the single tick that begins the work phase after a natural rest completion.
     // Prevents the idle-away check from immediately stopping a timer the user never touched.
@@ -42,6 +43,11 @@ final class IntervalManager {
     // Cap per-tick elapsed so a system sleep / screen lock gap does not
     // dump minutes of phantom work time into the accumulator on resume.
     private let maxElapsedPerTick: TimeInterval = 2.0
+
+    // Rest pauses while the user is still actively using the keyboard/mouse.
+    // If their last input was less than this many seconds ago, treat them as
+    // "still interacting" and freeze the rest countdown.
+    private let restInteractionThreshold: TimeInterval = 2.0
 
     init(settings: IntervalSettings? = nil, activity: (any ActivityMonitoring)? = nil) {
         self.settings = settings ?? .shared
@@ -60,7 +66,8 @@ final class IntervalManager {
         pauseReason = nil
         workTargetSeconds = 0
         workAccumulatedSeconds = 0
-        restEndsAt = nil
+        restTargetSeconds = 0
+        restAccumulatedSeconds = 0
         lastTickAt = nil
         advanceNotificationSent = false
         suppressIdleResetAfterRest = false
@@ -74,17 +81,23 @@ final class IntervalManager {
         beginWorking()
     }
 
+    func snooze() {
+        guard phase == .resting else { return }
+        cancelAdvanceNotification()
+        beginWorking(targetSeconds: max(1, settings.snoozeMinutes * 60))
+    }
+
     func restNow() {
         guard phase == .working else { return }
         cancelAdvanceNotification()
-        beginResting()
+        beginResting(manual: true)
     }
 
     // MARK: - Phase transitions
 
-    private func beginWorking() {
+    private func beginWorking(targetSeconds: TimeInterval? = nil) {
         phase = .working
-        workTargetSeconds = max(1, settings.workMinutes * 60)
+        workTargetSeconds = targetSeconds ?? max(1, settings.workMinutes * 60)
         workAccumulatedSeconds = 0
         advanceNotificationSent = false
         lastTickAt = Date()
@@ -95,11 +108,11 @@ final class IntervalManager {
         startTicking()
     }
 
-    private func beginResting() {
+    private func beginResting(manual: Bool = false) {
         phase = .resting
         let duration = max(1, settings.restMinutes * 60)
-        let end = Date().addingTimeInterval(duration)
-        restEndsAt = end
+        restTargetSeconds = duration
+        restAccumulatedSeconds = 0
         displayRemaining = duration
         isPaused = false
         pauseReason = nil
@@ -107,9 +120,12 @@ final class IntervalManager {
         cancelAdvanceNotification()
 
         restWindow.present(
+            manager: self,
             message: settings.restMessage,
-            endsAt: end,
-            onSkip: { [weak self] in self?.skipRest() }
+            snoozeMinutes: settings.snoozeMinutes,
+            allowSkip: !manual,
+            onSkip: { [weak self] in self?.skipRest() },
+            onSnooze: { [weak self] in self?.snooze() }
         )
 
         startTicking()
@@ -139,7 +155,7 @@ final class IntervalManager {
         case .working:
             tickWorking(elapsed: elapsed)
         case .resting:
-            tickResting(now: now)
+            tickResting(elapsed: elapsed)
         }
     }
 
@@ -151,9 +167,10 @@ final class IntervalManager {
         // User was away longer than a full rest break — reset the work timer.
         // Skip on the first tick after natural rest completion: the user was
         // intentionally idle during rest, so idleSeconds ≈ restDurationSeconds.
+        // Also skip entirely if the user has disabled long-idle auto-stop.
         if suppressIdleResetAfterRest {
             suppressIdleResetAfterRest = false
-        } else if !locked && idleSeconds >= restDurationSeconds {
+        } else if settings.stopOnLongIdle, !locked, idleSeconds >= restDurationSeconds {
             stop()
             return
         }
@@ -188,10 +205,24 @@ final class IntervalManager {
         }
     }
 
-    private func tickResting(now: Date) {
-        guard let end = restEndsAt else { return }
-        let remaining = max(0, end.timeIntervalSince(now))
+    private func tickResting(elapsed: TimeInterval) {
+        // If the user is still touching the keyboard/mouse, freeze the rest
+        // countdown until they stop — but only when the user has opted in.
+        let interacting = settings.pauseRestOnActivity
+            && activity.secondsSinceLastInput < restInteractionThreshold
+
+        if interacting {
+            isPaused = true
+            pauseReason = .userActive
+        } else {
+            isPaused = false
+            pauseReason = nil
+            restAccumulatedSeconds += elapsed
+        }
+
+        let remaining = max(0, restTargetSeconds - restAccumulatedSeconds)
         displayRemaining = remaining
+
         if remaining <= 0 {
             restWindow.dismiss()
             suppressIdleResetAfterRest = true

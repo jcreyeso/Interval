@@ -81,6 +81,7 @@ struct MenuBarContent: View {
         switch manager.pauseReason {
         case .screenLocked: "screen locked"
         case .userIdle:     "idle"
+        case .userActive:   "still active"
         case .none:         ""
         }
     }

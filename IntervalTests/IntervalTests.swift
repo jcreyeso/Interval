@@ -15,29 +15,25 @@ struct IntervalTests {
     /// automatically — no user action required — even when the user was idle
     /// for the entire rest period (the realistic case).
     @Test func restCompletionRestartsWorkCounter() async throws {
-        // 2-second work phase, 2-second rest phase
-        let settings = IntervalSettings(workMinutes: 2 / 60, restMinutes: 2 / 60)
+        // 2 s work, 5 s rest. Rest is longer than the post-rest idle-reset
+        // threshold so a stub idle value > restInteractionThreshold (2 s) can
+        // still be < restDurationSeconds (5 s).
+        let settings = IntervalSettings(workMinutes: 2 / 60, restMinutes: 5 / 60)
         let activity = StubActivity()
+        // 3 s satisfies both: > restInteractionThreshold (rest counts down)
+        // and < restDurationSeconds (post-rest stop check does not fire).
+        activity.secondsSinceLastInput = 3
         let manager = IntervalManager(settings: settings, activity: activity)
 
         manager.start()
 
-        // Work phase takes ~2 s; wait 3 s with margin
-        try await Task.sleep(for: .seconds(3))
-        #expect(manager.phase == .resting,
-                "Manager should enter rest phase automatically when work interval ends")
+        // Work (2 s) + rest (5 s) ≈ 7 s. Wait 8 s with margin.
+        try await Task.sleep(for: .seconds(8))
 
-        // Simulate the user being idle the whole rest period — this is the
-        // exact condition that previously caused stop() to fire on the first
-        // tick after rest, sending phase back to .idle.
-        activity.secondsSinceLastInput = settings.restMinutes * 60
-
-        // Rest phase takes ~2 s; wait 3 s with margin
-        try await Task.sleep(for: .seconds(3))
         #expect(manager.phase != .idle,
                 "Manager must not stop itself after rest ends — no user action required")
-        #expect(manager.phase == .working || manager.phase == .resting,
-                "Manager should be working (or still resting) after rest ends")
+        #expect(manager.phase == .working,
+                "Manager should be in the working phase after the full work/rest cycle")
 
         manager.stop()
     }

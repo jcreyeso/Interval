@@ -12,6 +12,9 @@ final class IntervalSettings {
         static let idleThresholdSeconds = "idleThresholdSeconds"
         static let showTimerInMenuBar = "showTimerInMenuBar"
         static let restMessage = "restMessage"
+        static let snoozeMinutes = "snoozeMinutes"
+        static let stopOnLongIdle = "stopOnLongIdle"
+        static let pauseRestOnActivity = "pauseRestOnActivity"
     }
 
     var workMinutes: Double {
@@ -38,13 +41,28 @@ final class IntervalSettings {
         didSet { UserDefaults.standard.set(restMessage, forKey: Key.restMessage) }
     }
 
+    var snoozeMinutes: Double {
+        didSet { UserDefaults.standard.set(snoozeMinutes, forKey: Key.snoozeMinutes) }
+    }
+
+    var stopOnLongIdle: Bool {
+        didSet { UserDefaults.standard.set(stopOnLongIdle, forKey: Key.stopOnLongIdle) }
+    }
+
+    var pauseRestOnActivity: Bool {
+        didSet { UserDefaults.standard.set(pauseRestOnActivity, forKey: Key.pauseRestOnActivity) }
+    }
+
     init(
         workMinutes: Double,
         restMinutes: Double,
         notificationLeadSeconds: Double = 0,
         idleThresholdSeconds: Double = 30,
         showTimerInMenuBar: Bool = false,
-        restMessage: String = ""
+        restMessage: String = "",
+        snoozeMinutes: Double = 5,
+        stopOnLongIdle: Bool = true,
+        pauseRestOnActivity: Bool = true
     ) {
         self.workMinutes = workMinutes
         self.restMinutes = restMinutes
@@ -52,6 +70,9 @@ final class IntervalSettings {
         self.idleThresholdSeconds = idleThresholdSeconds
         self.showTimerInMenuBar = showTimerInMenuBar
         self.restMessage = restMessage
+        self.snoozeMinutes = snoozeMinutes
+        self.stopOnLongIdle = stopOnLongIdle
+        self.pauseRestOnActivity = pauseRestOnActivity
     }
 
     private init() {
@@ -62,7 +83,10 @@ final class IntervalSettings {
             Key.notificationLeadSeconds: 10.0,
             Key.idleThresholdSeconds: 30.0,
             Key.showTimerInMenuBar: true,
-            Key.restMessage: "Time to rest.\nStand up, stretch, breathe."
+            Key.restMessage: "Time to rest.\nStand up, stretch, breathe.",
+            Key.snoozeMinutes: 5.0,
+            Key.stopOnLongIdle: true,
+            Key.pauseRestOnActivity: true
         ])
         self.workMinutes = defaults.double(forKey: Key.workMinutes)
         self.restMinutes = defaults.double(forKey: Key.restMinutes)
@@ -70,5 +94,8 @@ final class IntervalSettings {
         self.idleThresholdSeconds = defaults.double(forKey: Key.idleThresholdSeconds)
         self.showTimerInMenuBar = defaults.bool(forKey: Key.showTimerInMenuBar)
         self.restMessage = defaults.string(forKey: Key.restMessage) ?? ""
+        self.snoozeMinutes = defaults.double(forKey: Key.snoozeMinutes)
+        self.stopOnLongIdle = defaults.bool(forKey: Key.stopOnLongIdle)
+        self.pauseRestOnActivity = defaults.bool(forKey: Key.pauseRestOnActivity)
     }
 }

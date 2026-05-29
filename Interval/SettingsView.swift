@@ -40,10 +40,12 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Toggle("Stop timer when away longer than a rest", isOn: $settings.stopOnLongIdle)
             } header: {
                 Text("Idle detection")
             } footer: {
-                Text("Work countdown pauses when you stop moving the mouse or typing, and when the screen is locked. It resumes the moment you interact again.")
+                Text("Work countdown pauses when you stop moving the mouse or typing, and when the screen is locked. It resumes the moment you interact again. If you stay away longer than a full rest break, the timer stops — turn that off to keep it paused indefinitely instead.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -55,6 +57,16 @@ struct SettingsView: View {
             }
 
             Section("Rest screen") {
+                Stepper(value: $settings.snoozeMinutes, in: 1...60, step: 1) {
+                    LabeledContent("Delay rest by") {
+                        Text("\(Int(settings.snoozeMinutes)) min")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Toggle("Pause rest while you're still using the computer", isOn: $settings.pauseRestOnActivity)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Message")
                         .font(.callout)
@@ -81,7 +93,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 520)
+        .frame(width: 480, height: 620)
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
