@@ -12,6 +12,9 @@ final class RestWindowController {
             ? NSScreen.screens
             : [NSScreen.main ?? NSScreen.screens.first].compactMap { $0 }
 
+        // Pick the palette once per session so every display shares the same color.
+        let palette = RestPalette.random()
+
         for (index, screen) in screens.enumerated() {
             let window = NSWindow(
                 contentRect: screen.frame,
@@ -41,7 +44,8 @@ final class RestWindowController {
                 snoozeMinutes: snoozeMinutes,
                 allowSkip: allowSkip,
                 onSkip: onSkip,
-                onSnooze: onSnooze
+                onSnooze: onSnooze,
+                palette: palette
             )
             window.contentView = NSHostingView(rootView: view)
 

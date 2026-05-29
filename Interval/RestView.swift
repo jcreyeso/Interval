@@ -1,5 +1,64 @@
 import SwiftUI
 
+struct RestPalette {
+    let colors: [Color]
+
+    static let all: [RestPalette] = [
+        // Twilight indigo
+        RestPalette(colors: [
+            Color(red: 0.20, green: 0.25, blue: 0.55),
+            Color(red: 0.45, green: 0.30, blue: 0.65),
+            Color(red: 0.20, green: 0.45, blue: 0.65)
+        ]),
+        // Forest moss
+        RestPalette(colors: [
+            Color(red: 0.18, green: 0.36, blue: 0.32),
+            Color(red: 0.30, green: 0.50, blue: 0.40),
+            Color(red: 0.45, green: 0.58, blue: 0.42)
+        ]),
+        // Ocean drift
+        RestPalette(colors: [
+            Color(red: 0.10, green: 0.30, blue: 0.50),
+            Color(red: 0.18, green: 0.50, blue: 0.62),
+            Color(red: 0.40, green: 0.68, blue: 0.72)
+        ]),
+        // Lavender dusk
+        RestPalette(colors: [
+            Color(red: 0.36, green: 0.28, blue: 0.55),
+            Color(red: 0.55, green: 0.42, blue: 0.68),
+            Color(red: 0.72, green: 0.60, blue: 0.78)
+        ]),
+        // Warm sunset
+        RestPalette(colors: [
+            Color(red: 0.60, green: 0.30, blue: 0.40),
+            Color(red: 0.80, green: 0.45, blue: 0.40),
+            Color(red: 0.92, green: 0.65, blue: 0.45)
+        ]),
+        // Sand & sage
+        RestPalette(colors: [
+            Color(red: 0.55, green: 0.58, blue: 0.50),
+            Color(red: 0.72, green: 0.70, blue: 0.58),
+            Color(red: 0.85, green: 0.78, blue: 0.65)
+        ]),
+        // Northern aurora
+        RestPalette(colors: [
+            Color(red: 0.10, green: 0.28, blue: 0.42),
+            Color(red: 0.20, green: 0.55, blue: 0.55),
+            Color(red: 0.40, green: 0.70, blue: 0.55)
+        ]),
+        // Rose quartz
+        RestPalette(colors: [
+            Color(red: 0.55, green: 0.38, blue: 0.50),
+            Color(red: 0.78, green: 0.55, blue: 0.62),
+            Color(red: 0.90, green: 0.72, blue: 0.72)
+        ])
+    ]
+
+    static func random() -> RestPalette {
+        all.randomElement() ?? all[0]
+    }
+}
+
 struct RestView: View {
     let manager: IntervalManager
     let message: String
@@ -7,6 +66,7 @@ struct RestView: View {
     let allowSkip: Bool
     let onSkip: () -> Void
     let onSnooze: () -> Void
+    let palette: RestPalette
 
     private var isPaused: Bool {
         manager.isPaused && manager.pauseReason == .userActive
@@ -15,11 +75,7 @@ struct RestView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.25, blue: 0.55).opacity(0.78),
-                    Color(red: 0.45, green: 0.30, blue: 0.65).opacity(0.78),
-                    Color(red: 0.20, green: 0.45, blue: 0.65).opacity(0.78)
-                ],
+                colors: palette.colors.map { $0.opacity(0.78) },
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -107,7 +163,8 @@ struct RestView: View {
         snoozeMinutes: 5,
         allowSkip: true,
         onSkip: {},
-        onSnooze: {}
+        onSnooze: {},
+        palette: .random()
     )
     .frame(width: 1200, height: 800)
 }
