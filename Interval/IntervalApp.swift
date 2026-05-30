@@ -1,7 +1,10 @@
 import SwiftUI
+import SwiftData
 import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var onWillTerminate: (() -> Void)?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
@@ -12,7 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // SwiftUI's WindowGroup restores any window that was open at last quit.
         // We want a menu-bar-only launch — close any auto-restored main windows.
         DispatchQueue.main.async {
-            for window in NSApp.windows where window.title == "Interval" {
+            for window in NSApp.windows where window.title == "Interval" || window.title == "Statistics" {
                 window.close()
             }
         }
@@ -47,6 +50,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        AppDelegate.onWillTerminate?()
+    }
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -60,13 +67,40 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 struct IntervalApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var settings = IntervalSettings.shared
-    @State private var manager = IntervalManager()
+    @State private var manager: IntervalManager
+    private let container: ModelContainer
+
+    init() {
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(for: DayStat.self)
+        } catch {
+            // Fall back to an in-memory store so the app still launches if the
+            // on-disk store is unreadable (e.g. schema mismatch during dev).
+            let config = ModelConfiguration(isStoredInMemoryOnly: true)
+            container = try! ModelContainer(for: DayStat.self, configurations: config)
+        }
+        self.container = container
+        let mgr = IntervalManager()
+        mgr.stats = StatsRecorder(container: container)
+        _manager = State(initialValue: mgr)
+
+        // Flush in-memory deltas on quit so a final partial session isn't lost.
+        AppDelegate.onWillTerminate = { [weak mgr] in mgr?.flushStats() }
+    }
 
     var body: some Scene {
         WindowGroup("Interval", id: "main") {
             ContentView(manager: manager, settings: settings)
         }
         .windowResizability(.contentSize)
+        .modelContainer(container)
+
+        WindowGroup("Statistics", id: "stats") {
+            StatisticsView(manager: manager)
+        }
+        .windowResizability(.contentSize)
+        .modelContainer(container)
 
         Settings {
             SettingsView(settings: settings)
@@ -97,6 +131,17 @@ struct MenuBarContent: View {
                 existing.makeKeyAndOrderFront(nil)
             } else {
                 openWindow(id: "main")
+            }
+        }
+
+        Button("Statistics…") {
+            AppDelegate.showInDock()
+            manager.flushStats()
+            if let existing = NSApp.windows.first(where: { $0.title == "Statistics" }) {
+                if existing.isMiniaturized { existing.deminiaturize(nil) }
+                existing.makeKeyAndOrderFront(nil)
+            } else {
+                openWindow(id: "stats")
             }
         }
 

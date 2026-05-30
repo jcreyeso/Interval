@@ -23,6 +23,7 @@ final class IntervalManager {
     private let activity: any ActivityMonitoring
     private let restWindow = RestWindowController()
     private var tickTimer: Timer?
+    var stats: StatsRecorder?
 
     // Work-phase accumulation
     private var workTargetSeconds: TimeInterval = 0
@@ -57,7 +58,10 @@ final class IntervalManager {
 
     func start() { beginWorking() }
 
+    func flushStats() { stats?.flush() }
+
     func stop() {
+        stats?.flush()
         tickTimer?.invalidate()
         tickTimer = nil
         phase = .idle
@@ -96,6 +100,7 @@ final class IntervalManager {
     // MARK: - Phase transitions
 
     private func beginWorking(targetSeconds: TimeInterval? = nil) {
+        stats?.flush()
         phase = .working
         workTargetSeconds = targetSeconds ?? max(1, settings.workMinutes * 60)
         workAccumulatedSeconds = 0
@@ -109,6 +114,7 @@ final class IntervalManager {
     }
 
     private func beginResting(manual: Bool = false) {
+        stats?.recordRestStarted()
         phase = .resting
         let duration = max(1, settings.restMinutes * 60)
         restTargetSeconds = duration
@@ -196,6 +202,7 @@ final class IntervalManager {
             isPaused = false
             pauseReason = nil
             workAccumulatedSeconds += elapsed
+            stats?.addWork(elapsed)
         }
 
         let remaining = max(0, workTargetSeconds - workAccumulatedSeconds)
@@ -227,6 +234,7 @@ final class IntervalManager {
             isPaused = false
             pauseReason = nil
             restAccumulatedSeconds += elapsed
+            stats?.addRest(elapsed)
         }
 
         let remaining = max(0, restTargetSeconds - restAccumulatedSeconds)
