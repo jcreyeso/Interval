@@ -39,6 +39,13 @@ final class IntervalManager {
     // Prevents the idle-away check from immediately stopping a timer the user never touched.
     private var suppressIdleResetAfterRest = false
 
+    // Wall-clock timestamp captured when the system posts willSleep. Compared against
+    // didWake to decide whether the sleep gap was long enough to count as a full rest.
+    private var sleepStartedAt: Date?
+    // Read from `deinit`, which is nonisolated. Only ever written on the main actor.
+    private nonisolated(unsafe) var sleepObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var wakeObserver: NSObjectProtocol?
+
     private let advanceNotificationId = "interval.advance"
 
     // Cap per-tick elapsed so a system sleep / screen lock gap does not
@@ -54,6 +61,53 @@ final class IntervalManager {
         self.settings = settings ?? .shared
         self.activity = activity ?? ActivityMonitor()
         Task { await requestNotificationAuthorization() }
+        registerSleepWakeObservers()
+    }
+
+    deinit {
+        if let sleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver)
+        }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
+    }
+
+    private func registerSleepWakeObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        sleepObserver = center.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleSystemWillSleep() }
+        }
+        wakeObserver = center.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleSystemDidWake() }
+        }
+    }
+
+    private func handleSystemWillSleep() {
+        sleepStartedAt = Date()
+    }
+
+    private func handleSystemDidWake() {
+        guard let sleptAt = sleepStartedAt else { return }
+        sleepStartedAt = nil
+        let sleptFor = Date().timeIntervalSince(sleptAt)
+        let restDurationSeconds = TimeInterval(settings.restMinutes * 60)
+        guard sleptFor >= restDurationSeconds, phase == .working else { return }
+
+        // Treat the sleep gap as a completed rest: start the focus session over.
+        workAccumulatedSeconds = 0
+        advanceNotificationSent = false
+        displayRemaining = workTargetSeconds
+        suppressIdleResetAfterRest = true
+        lastTickAt = Date()
     }
 
     func start() { beginWorking() }
@@ -114,7 +168,6 @@ final class IntervalManager {
     }
 
     private func beginResting(manual: Bool = false) {
-        stats?.recordRestStarted()
         phase = .resting
         let duration = max(1, settings.restMinutes * 60)
         restTargetSeconds = duration
@@ -241,6 +294,8 @@ final class IntervalManager {
         displayRemaining = remaining
 
         if remaining <= 0 {
+            let userWasIdle = activity.secondsSinceLastInput >= restTargetSeconds
+            stats?.recordRestCompleted(userWasIdle: userWasIdle)
             restWindow.dismiss()
             suppressIdleResetAfterRest = true
             beginWorking()

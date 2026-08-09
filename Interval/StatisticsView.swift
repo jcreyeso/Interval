@@ -49,6 +49,7 @@ struct StatisticsView: View {
             statRow(label: "Work time", value: formatDuration(day?.workSeconds ?? 0), icon: "brain.head.profile")
             statRow(label: "Rest time", value: formatDuration(day?.restSeconds ?? 0), icon: "leaf.fill")
             statRow(label: "Rest intervals", value: "\(day?.restCount ?? 0)", icon: "number.circle.fill")
+            statRow(label: "Idle rests", value: "\(day?.idleRestCount ?? 0)", icon: "moon.zzz.fill")
         }
     }
 

@@ -12,6 +12,7 @@ final class StatsRecorder {
     private var pendingWork: TimeInterval = 0
     private var pendingRest: TimeInterval = 0
     private var pendingRestCount: Int = 0
+    private var pendingIdleRestCount: Int = 0
 
     // The day the pending deltas belong to. If the wall clock crosses midnight
     // mid-session we flush to the old day before switching.
@@ -37,22 +38,25 @@ final class StatsRecorder {
         pendingRest += seconds
     }
 
-    func recordRestStarted() {
+    func recordRestCompleted(userWasIdle: Bool) {
         rolloverIfNeeded()
         pendingRestCount += 1
+        if userWasIdle { pendingIdleRestCount += 1 }
         flush()
     }
 
     func flush() {
         rolloverIfNeeded()
-        guard pendingWork > 0 || pendingRest > 0 || pendingRestCount > 0 else { return }
+        guard pendingWork > 0 || pendingRest > 0 || pendingRestCount > 0 || pendingIdleRestCount > 0 else { return }
         let day = fetchOrCreate(dayKey: currentDayKey)
         day.workSeconds += pendingWork
         day.restSeconds += pendingRest
         day.restCount += pendingRestCount
+        day.idleRestCount += pendingIdleRestCount
         pendingWork = 0
         pendingRest = 0
         pendingRestCount = 0
+        pendingIdleRestCount = 0
         try? context.save()
     }
 
@@ -82,14 +86,16 @@ final class StatsRecorder {
         let nowKey = DayKey.key(for: Date())
         guard nowKey != currentDayKey else { return }
         // Flush whatever was pending to the *previous* day before switching.
-        if pendingWork > 0 || pendingRest > 0 || pendingRestCount > 0 {
+        if pendingWork > 0 || pendingRest > 0 || pendingRestCount > 0 || pendingIdleRestCount > 0 {
             let day = fetchOrCreate(dayKey: currentDayKey)
             day.workSeconds += pendingWork
             day.restSeconds += pendingRest
             day.restCount += pendingRestCount
+            day.idleRestCount += pendingIdleRestCount
             pendingWork = 0
             pendingRest = 0
             pendingRestCount = 0
+            pendingIdleRestCount = 0
             try? context.save()
         }
         currentDayKey = nowKey

@@ -8,19 +8,22 @@ final class DayStat {
     var workSeconds: Double
     var restSeconds: Double
     var restCount: Int
+    var idleRestCount: Int = 0
 
     init(
         dayKey: String,
         date: Date,
         workSeconds: Double = 0,
         restSeconds: Double = 0,
-        restCount: Int = 0
+        restCount: Int = 0,
+        idleRestCount: Int = 0
     ) {
         self.dayKey = dayKey
         self.date = date
         self.workSeconds = workSeconds
         self.restSeconds = restSeconds
         self.restCount = restCount
+        self.idleRestCount = idleRestCount
     }
 }
 
