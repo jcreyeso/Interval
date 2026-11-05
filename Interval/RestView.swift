@@ -83,11 +83,7 @@ struct RestView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 28) {
-                Image(systemName: "figure.mind.and.body")
-                    .font(.system(size: 180, weight: .ultraLight))
-                    .foregroundStyle(.white.opacity(0.95))
-                    .symbolEffect(.pulse, options: .repeating, isActive: !isPaused)
-                    .shadow(color: .black.opacity(0.25), radius: 24, y: 6)
+                RestIllustration()
 
                 Text(message)
                     .font(.system(size: 44, weight: .semibold, design: .rounded))
@@ -96,10 +92,7 @@ struct RestView: View {
                     .padding(.horizontal, 80)
                     .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
 
-                Text(formatTime(manager.displayRemaining))
-                    .font(.system(size: 72, weight: .light, design: .monospaced))
-                    .foregroundStyle(.white.opacity(isPaused ? 0.55 : 0.95))
-                    .monospacedDigit()
+                RestCountdown(manager: manager, isPaused: isPaused)
 
                 if isPaused {
                     HStack(spacing: 8) {
@@ -147,12 +140,90 @@ struct RestView: View {
             .padding(.vertical, 60)
         }
     }
+}
+
+// Its own view so the per-second displayRemaining read invalidates only this text,
+// not the rest of the screen.
+private struct RestCountdown: View {
+    let manager: IntervalManager
+    let isPaused: Bool
+
+    var body: some View {
+        Text(formatTime(manager.displayRemaining))
+            .font(.system(size: 72, weight: .light, design: .monospaced))
+            .foregroundStyle(.white.opacity(isPaused ? 0.55 : 0.95))
+            .monospacedDigit()
+    }
 
     private func formatTime(_ t: TimeInterval) -> String {
         let total = Int(t.rounded())
         let m = total / 60
         let s = total % 60
         return String(format: "%02d:%02d", m, s)
+    }
+}
+
+// Deliberately static: a repeating symbol effect here cost about 11% of a core even in
+// a small test window. Drawn in white so it suits every RestPalette, and as vectors
+// so it stays sharp at any backing scale.
+struct RestIllustration: View {
+    private let waterline = CGPoint(x: 160, y: 190)
+
+    var body: some View {
+        Canvas { context, size in
+            context.scaleBy(x: size.width / 320, y: size.height / 240)
+            drawHalo(in: &context)
+            drawRipples(in: &context)
+            // Back row first so the shorter front petals overlap it.
+            drawPetals(angles: [-64, -32, 0, 32, 64], length: 118, width: 44, opacity: 0.55, in: &context)
+            drawPetals(angles: [-80, -48, -16, 16, 48, 80], length: 92, width: 40, opacity: 0.95, in: &context)
+        }
+        .frame(width: 320, height: 240)
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+        .accessibilityHidden(true)
+    }
+
+    private func drawHalo(in context: inout GraphicsContext) {
+        let center = CGPoint(x: waterline.x, y: 118)
+        let glow = Path(ellipseIn: CGRect(x: center.x - 118, y: center.y - 118, width: 236, height: 236))
+        context.fill(glow, with: .radialGradient(
+            Gradient(colors: [.white.opacity(0.42), .white.opacity(0)]),
+            center: center,
+            startRadius: 0,
+            endRadius: 118
+        ))
+        for (radius, opacity) in [(72.0, 0.22), (92.0, 0.14), (112.0, 0.07)] {
+            let ring = Path(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+            context.stroke(ring, with: .color(.white.opacity(opacity)), lineWidth: 1)
+        }
+    }
+
+    private func drawRipples(in context: inout GraphicsContext) {
+        for (radiusX, radiusY, opacity) in [(70.0, 9.0, 0.45), (108.0, 15.0, 0.25), (146.0, 21.0, 0.12)] {
+            let center = CGPoint(x: waterline.x, y: waterline.y + 8)
+            let ripple = Path(ellipseIn: CGRect(x: center.x - radiusX, y: center.y - radiusY, width: radiusX * 2, height: radiusY * 2))
+            context.stroke(ripple, with: .color(.white.opacity(opacity)), lineWidth: 1.2)
+        }
+    }
+
+    private func drawPetals(angles: [Double], length: CGFloat, width: CGFloat, opacity: Double, in context: inout GraphicsContext) {
+        var petal = Path()
+        petal.move(to: .zero)
+        petal.addQuadCurve(to: CGPoint(x: 0, y: -length), control: CGPoint(x: width * 0.8, y: -length * 0.5))
+        petal.addQuadCurve(to: .zero, control: CGPoint(x: -width * 0.8, y: -length * 0.5))
+
+        // Outermost petals first, so each layer closes in toward the center.
+        for angle in angles.sorted(by: { abs($0) > abs($1) }) {
+            var layer = context
+            layer.translateBy(x: waterline.x, y: waterline.y)
+            layer.rotate(by: .degrees(angle))
+            layer.fill(petal, with: .linearGradient(
+                Gradient(colors: [.white.opacity(opacity), .white.opacity(opacity * 0.35)]),
+                startPoint: CGPoint(x: 0, y: -length),
+                endPoint: .zero
+            ))
+            layer.stroke(petal, with: .color(.white.opacity(opacity * 0.5)), lineWidth: 0.75)
+        }
     }
 }
 

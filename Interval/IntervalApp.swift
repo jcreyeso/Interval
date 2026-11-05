@@ -3,6 +3,7 @@ import SwiftData
 import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var onDidFinishLaunching: (() -> Void)?
     static var onWillTerminate: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,6 +27,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             name: NSWindow.willCloseNotification,
             object: nil
         )
+
+        AppDelegate.onDidFinishLaunching?()
     }
 
     static func showInDock() {
@@ -84,6 +87,8 @@ struct IntervalApp: App {
         let mgr = IntervalManager()
         mgr.stats = StatsRecorder(container: container)
         _manager = State(initialValue: mgr)
+
+        AppDelegate.onDidFinishLaunching = { [weak mgr] in mgr?.startOnLaunchIfEnabled() }
 
         // Flush in-memory deltas on quit so a final partial session isn't lost.
         AppDelegate.onWillTerminate = { [weak mgr] in mgr?.flushStats() }

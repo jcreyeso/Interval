@@ -15,7 +15,13 @@ final class IntervalManager {
     }
 
     private(set) var phase: Phase = .idle
-    private(set) var displayRemaining: TimeInterval = 0
+    private(set) var displayRemaining: TimeInterval = 0 {
+        didSet { menuBarRemaining = Self.menuBarText(for: displayRemaining) }
+    }
+    // The menu bar reads this instead of displayRemaining: every label change makes
+    // AppKit re-snapshot the status item on each display, which was the app's main
+    // CPU cost while working. Seconds appear only in the final minute to limit that.
+    private(set) var menuBarRemaining: String = ""
     private(set) var isPaused: Bool = false
     private(set) var pauseReason: PauseReason?
 
@@ -39,9 +45,11 @@ final class IntervalManager {
     // Prevents the idle-away check from immediately stopping a timer the user never touched.
     private var suppressIdleResetAfterRest = false
 
-    // Wall-clock timestamp captured when the system posts willSleep. Compared against
-    // didWake to decide whether the sleep gap was long enough to count as a full rest.
-    private var sleepStartedAt: Date?
+    // When the user was last present before the system slept, so the idle time leading
+    // up to sleep counts too: Macs usually sleep because they were already idle, and the
+    // input that wakes them clears the idle counter. Compared against didWake to decide
+    // whether the absence was long enough to count as a full rest.
+    private var awayStartedAt: Date?
     // Read from `deinit`, which is nonisolated. Only ever written on the main actor.
     private nonisolated(unsafe) var sleepObserver: NSObjectProtocol?
     private nonisolated(unsafe) var wakeObserver: NSObjectProtocol?
@@ -92,25 +100,60 @@ final class IntervalManager {
     }
 
     private func handleSystemWillSleep() {
-        sleepStartedAt = Date()
+        // Power Nap splits one absence into many short sleeps. If willSleep repeats
+        // without a didWake, keep the first rather than measuring only the last fragment.
+        guard awayStartedAt == nil else { return }
+        awayStartedAt = Date().addingTimeInterval(-activity.secondsSinceLastInput)
     }
 
     private func handleSystemDidWake() {
-        guard let sleptAt = sleepStartedAt else { return }
-        sleepStartedAt = nil
-        let sleptFor = Date().timeIntervalSince(sleptAt)
-        let restDurationSeconds = TimeInterval(settings.restMinutes * 60)
-        guard sleptFor >= restDurationSeconds, phase == .working else { return }
+        guard let awayStartedAt else { return }
+        self.awayStartedAt = nil
+        let awayFor = Date().timeIntervalSince(awayStartedAt)
+        guard awayFor >= settings.restMinutes * 60 else { return }
 
-        // Treat the sleep gap as a completed rest: start the focus session over.
+        // Treat the absence as a completed rest.
+        switch phase {
+        case .idle:
+            break
+        case .working:
+            restartFocusSession()
+            lastTickAt = Date()
+        case .resting:
+            completeRest(userWasIdle: true)
+        }
+    }
+
+    // Uses the configured length rather than the current target, which may be a short
+    // snooze: a Delay shouldn't outlive the absence that followed it.
+    private func restartFocusSession() {
+        workTargetSeconds = max(1, settings.workMinutes * 60)
         workAccumulatedSeconds = 0
         advanceNotificationSent = false
         displayRemaining = workTargetSeconds
+        // Wait for fresh input before counting down the new session.
         suppressIdleResetAfterRest = true
-        lastTickAt = Date()
+    }
+
+    private func completeRest(userWasIdle: Bool) {
+        stats?.recordRestCompleted(userWasIdle: userWasIdle)
+        restWindow.dismiss()
+        suppressIdleResetAfterRest = true
+        beginWorking()
+    }
+
+    nonisolated static func menuBarText(for remaining: TimeInterval) -> String {
+        let seconds = Int(remaining.rounded(.up))
+        if seconds < 60 { return "\(seconds)s" }
+        return "\(Int((Double(seconds) / 60).rounded(.up)))m"
     }
 
     func start() { beginWorking() }
+
+    func startOnLaunchIfEnabled() {
+        guard settings.startOnLaunch, phase == .idle else { return }
+        start()
+    }
 
     func flushStats() { stats?.flush() }
 
@@ -236,11 +279,7 @@ final class IntervalManager {
                 suppressIdleResetAfterRest = false
             }
         } else if settings.stopOnLongIdle, idleSeconds >= restDurationSeconds {
-            workAccumulatedSeconds = 0
-            advanceNotificationSent = false
-            displayRemaining = workTargetSeconds
-            // Wait for fresh input before counting down the new session.
-            suppressIdleResetAfterRest = true
+            restartFocusSession()
         }
 
         let userIdle = idleSeconds > settings.idleThresholdSeconds
@@ -294,11 +333,7 @@ final class IntervalManager {
         displayRemaining = remaining
 
         if remaining <= 0 {
-            let userWasIdle = activity.secondsSinceLastInput >= restTargetSeconds
-            stats?.recordRestCompleted(userWasIdle: userWasIdle)
-            restWindow.dismiss()
-            suppressIdleResetAfterRest = true
-            beginWorking()
+            completeRest(userWasIdle: activity.secondsSinceLastInput >= restTargetSeconds)
         }
     }
 

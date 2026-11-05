@@ -16,6 +16,7 @@ final class IntervalSettings {
         static let stopOnLongIdle = "stopOnLongIdle"
         static let pauseRestOnActivity = "pauseRestOnActivity"
         static let restOnAllScreens = "restOnAllScreens"
+        static let startOnLaunch = "startOnLaunch"
     }
 
     var workMinutes: Double {
@@ -58,6 +59,10 @@ final class IntervalSettings {
         didSet { UserDefaults.standard.set(restOnAllScreens, forKey: Key.restOnAllScreens) }
     }
 
+    var startOnLaunch: Bool {
+        didSet { UserDefaults.standard.set(startOnLaunch, forKey: Key.startOnLaunch) }
+    }
+
     init(
         workMinutes: Double,
         restMinutes: Double,
@@ -68,7 +73,8 @@ final class IntervalSettings {
         snoozeMinutes: Double = 5,
         stopOnLongIdle: Bool = true,
         pauseRestOnActivity: Bool = true,
-        restOnAllScreens: Bool = true
+        restOnAllScreens: Bool = true,
+        startOnLaunch: Bool = false
     ) {
         self.workMinutes = workMinutes
         self.restMinutes = restMinutes
@@ -80,6 +86,7 @@ final class IntervalSettings {
         self.stopOnLongIdle = stopOnLongIdle
         self.pauseRestOnActivity = pauseRestOnActivity
         self.restOnAllScreens = restOnAllScreens
+        self.startOnLaunch = startOnLaunch
     }
 
     private init() {
@@ -94,7 +101,8 @@ final class IntervalSettings {
             Key.snoozeMinutes: 5.0,
             Key.stopOnLongIdle: true,
             Key.pauseRestOnActivity: true,
-            Key.restOnAllScreens: true
+            Key.restOnAllScreens: true,
+            Key.startOnLaunch: false
         ])
         self.workMinutes = defaults.double(forKey: Key.workMinutes)
         self.restMinutes = defaults.double(forKey: Key.restMinutes)
@@ -106,5 +114,6 @@ final class IntervalSettings {
         self.stopOnLongIdle = defaults.bool(forKey: Key.stopOnLongIdle)
         self.pauseRestOnActivity = defaults.bool(forKey: Key.pauseRestOnActivity)
         self.restOnAllScreens = defaults.bool(forKey: Key.restOnAllScreens)
+        self.startOnLaunch = defaults.bool(forKey: Key.startOnLaunch)
     }
 }

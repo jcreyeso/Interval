@@ -55,6 +55,8 @@ struct SettingsView: View {
                 Toggle("Show timer in menu bar", isOn: $settings.showTimerInMenuBar)
 
                 Toggle("Launch at login", isOn: launchAtLoginBinding)
+
+                Toggle("Start timer when Interval opens", isOn: $settings.startOnLaunch)
             }
 
             Section("Rest screen") {
